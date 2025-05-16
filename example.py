@@ -1,6 +1,6 @@
 import asyncio
-from typing import Dict, List, Optional, Any
-from pydantic import BaseModel, Field
+from typing import Dict, List, Any
+from pydantic import BaseModel
 
 from workflow import Step, Workflow
 
@@ -28,19 +28,9 @@ class NotificationResult(BaseModel):
     channel: str
 
 
-# Define resume schema
-class ProcessingResumeData(BaseModel):
-    last_processed_field: str
-    progress_percentage: float
-
-
 # Define step functions
-async def process_user_data(user_input: UserInput, resume_data: Optional[ProcessingResumeData] = None):
+async def process_user_data(user_input: UserInput):
     """Process initial user data and create a user profile."""
-    
-    # Example of using resume data
-    if resume_data:
-        print(f"Resuming processing from {resume_data.last_processed_field} ({resume_data.progress_percentage}%)")
     
     # Create a user ID and basic profile
     user_id = f"user_{user_input.name.lower().replace(' ', '_')}_{user_input.age}"
@@ -56,7 +46,7 @@ async def process_user_data(user_input: UserInput, resume_data: Optional[Process
     return ProcessedUserData(user_id=user_id, profile=profile)
 
 
-async def enrich_user_data(processed_data: ProcessedUserData, resume_data=None):
+async def enrich_user_data(processed_data: ProcessedUserData):
     """Enrich user data with additional information."""
     # Add preferences based on user age
     if processed_data.profile["age"] < 18:
@@ -76,7 +66,7 @@ async def enrich_user_data(processed_data: ProcessedUserData, resume_data=None):
     )
 
 
-async def send_email_notification(user_data: EnrichedUserData, resume_data=None):
+async def send_email_notification(user_data: EnrichedUserData):
     """Send email notification to the user."""
     # Simulate sending an email
     print(f"Sending email to user {user_data.user_id}")
@@ -89,7 +79,7 @@ async def send_email_notification(user_data: EnrichedUserData, resume_data=None)
     )
 
 
-async def send_sms_notification(user_data: EnrichedUserData, resume_data=None):
+async def send_sms_notification(user_data: EnrichedUserData):
     """Send SMS notification to the user."""
     # Simulate sending an SMS
     print(f"Sending SMS to user {user_data.user_id}")
@@ -110,7 +100,6 @@ async def main():
         input_schema=UserInput,
         output_schema=ProcessedUserData,
         func=process_user_data,
-        resume_schema=ProcessingResumeData
     )
     
     enrich_step = Step(

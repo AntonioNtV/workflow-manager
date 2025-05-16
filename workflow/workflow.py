@@ -5,6 +5,7 @@ import time
 import asyncio
 
 from workflow.step import Step
+from workflow.context import StepContext
 
 InputType = TypeVar("InputType", bound=BaseModel)
 OutputType = TypeVar("OutputType", bound=BaseModel)
@@ -58,34 +59,10 @@ class WorkflowCompletedEvent(WorkflowEvent):
     execution_time: float
 
 
-class StepContext(BaseModel):
-    """
-    Context object passed to each step during execution.
-    
-    Provides access to:
-    - The input data for the current step
-    - Results from previously executed steps
-    - The initial input data for the workflow
-    """
-    input_data: Any
-    step_results: Dict[str, Any] = {}
-    initial_data: Any = None
-    
-    def get_step_result(self, step_id: str) -> Any:
-        """Get the result of a previously executed step by ID."""
-        if step_id not in self.step_results:
-            raise KeyError(f"No result found for step with ID: {step_id}")
-        return self.step_results[step_id]
-    
-    def get_initial_data(self) -> Any:
-        """Get the initial input data provided to the workflow."""
-        return self.initial_data
-
-
 class WorkflowNode:
     """Base class for a node in the workflow execution graph."""
     
-    async def execute_node(self, workflow_name: str, context: StepContext) -> Any:
+    async def execute_node(self, context: StepContext) -> Any:
         """Execute this node and return the result"""
         raise NotImplementedError("Subclasses must implement execute_node")
     
@@ -100,17 +77,18 @@ class StepNode(WorkflowNode):
     def __init__(self, step: Step):
         self.step = step
     
-    async def execute_node(self, workflow_name: str, context: StepContext) -> Any:
+    async def execute_node(self,context: StepContext) -> Any:
         result = await self.step.execute(context)
         return result
     
-    async def execute_with_events(self, workflow_name: str, context: StepContext) -> AsyncGenerator[tuple[WorkflowEvent, Any], None]:
+    async def execute_with_events(self, context: StepContext) -> AsyncGenerator[tuple[WorkflowEvent, Any], None]:
         step = self.step
         step_start_time = time.time()
+
         
         # Emit step started event
         yield (StepStartedEvent(
-            workflow_name=workflow_name,
+            workflow_name=context.workflow_name,
             step_id=step.id,
             step_name=step.name,
             input_data=context.input_data,
@@ -123,7 +101,7 @@ class StepNode(WorkflowNode):
         # Emit step completed event
         step_execution_time = time.time() - step_start_time
         yield (StepCompletedEvent(
-            workflow_name=workflow_name,
+            workflow_name=context.workflow_name,
             step_id=step.id,
             step_name=step.name,
             output_data=result,
@@ -137,7 +115,7 @@ class ParallelNode(WorkflowNode):
     def __init__(self, steps: List[Step]):
         self.steps = steps
     
-    async def execute_node(self, workflow_name: str, context: StepContext) -> Dict[str, Any]:
+    async def execute_node(self, context: StepContext) -> Dict[str, Any]:
         results = {}
         for step in self.steps:
             # Create a clone of the context for each parallel step
@@ -263,23 +241,18 @@ class Workflow(Generic[InputType, OutputType]):
         # Initialize step results storage
         step_results = {}
         
-        # Set up initial context
-        context = StepContext(
-            input_data=validated_input,
-            step_results=step_results,
-            initial_data=validated_input
-        )
-        
         current_data = validated_input
         
         for node in self.nodes:
-            # Update the context with the current input data
-            context.input_data = current_data
+            context = StepContext(
+                input_data=current_data,
+                step_results=step_results,
+                initial_data=validated_input,
+                workflow_name=self.name
+            )
             
-            # Execute the node
-            result = await node.execute_node(self.name, context)
+            result = await node.execute_node(context)
             current_data = result
-            
             # Store results from this node
             if isinstance(node, StepNode):
                 step_results[node.step.id] = result
