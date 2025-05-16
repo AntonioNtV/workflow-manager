@@ -66,7 +66,7 @@ class WorkflowNode:
         """Execute this node and return the result"""
         raise NotImplementedError("Subclasses must implement execute_node")
     
-    async def execute_with_events(self, workflow_name: str, context: StepContext) -> AsyncGenerator[tuple[WorkflowEvent, Any], None]:
+    async def execute_with_events(self, context: StepContext) -> AsyncGenerator[tuple[WorkflowEvent, Any], None]:
         """Execute this node and yield events along with the updated data"""
         raise NotImplementedError("Subclasses must implement execute_with_events")
 
@@ -96,8 +96,9 @@ class StepNode(WorkflowNode):
         ), context.input_data)
         
         # Execute the step
+        print(f"Executing step {step.name} with context: {context}")
         result = await step.execute(context)
-        
+                
         # Emit step completed event
         step_execution_time = time.time() - step_start_time
         yield (StepCompletedEvent(
@@ -122,13 +123,14 @@ class ParallelNode(WorkflowNode):
             step_context = StepContext(
                 input_data=context.input_data,
                 step_results=context.step_results.copy(),
-                initial_data=context.initial_data
+                initial_data=context.initial_data,
+                workflow_name=context.workflow_name
             )
             result = await step.execute(step_context)
             results[step.id] = result
         return results
     
-    async def execute_with_events(self, workflow_name: str, context: StepContext) -> AsyncGenerator[tuple[WorkflowEvent, Any], None]:
+    async def execute_with_events(self, context: StepContext) -> AsyncGenerator[tuple[WorkflowEvent, Any], None]:
         results = {}
         
         # In a production implementation, we would use asyncio.gather with proper
@@ -140,12 +142,13 @@ class ParallelNode(WorkflowNode):
             step_context = StepContext(
                 input_data=context.input_data,
                 step_results=context.step_results.copy(),
-                initial_data=context.initial_data
+                initial_data=context.initial_data,
+                workflow_name=context.workflow_name
             )
             
             # Emit step started event
             yield (StepStartedEvent(
-                workflow_name=workflow_name,
+                workflow_name=context.workflow_name,
                 step_id=step.id,
                 step_name=step.name,
                 input_data=context.input_data,
@@ -158,8 +161,9 @@ class ParallelNode(WorkflowNode):
             
             # Emit step completed event
             step_execution_time = time.time() - step_start_time
+
             yield (StepCompletedEvent(
-                workflow_name=workflow_name,
+                workflow_name=context.workflow_name,
                 step_id=step.id,
                 step_name=step.name,
                 output_data=result,
@@ -289,22 +293,20 @@ class Workflow(Generic[InputType, OutputType]):
             input_data=validated_input,
             output_data=None
         )
-        
-        # Set up initial context
-        context = StepContext(
-            input_data=validated_input,
-            step_results=step_results,
-            initial_data=validated_input
-        )
-        
         current_data = validated_input
         
         # Process each node in sequence
+
         for node in self.nodes:
-            # Update context with current data
-            context.input_data = current_data
+            context = StepContext(
+                input_data=current_data,
+                step_results=step_results,
+                initial_data=validated_input,
+                workflow_name=self.name
+            )
+        
             
-            async for event, data in node.execute_with_events(self.name, context):
+            async for event, data in node.execute_with_events(context):
                 if event is not None:  # Skip None events (used for internal data passing)
                     yield event
                 else:

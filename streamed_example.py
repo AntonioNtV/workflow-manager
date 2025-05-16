@@ -1,9 +1,8 @@
 import asyncio
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Any
 from pydantic import BaseModel
 
-from workflow import Step, Workflow
-from workflow.workflow import EventType, WorkflowEvent, StepStartedEvent, StepCompletedEvent, StepContext
+from workflow import Step, Workflow, EventType, WorkflowEvent
 
 
 # Define input and output schemas for steps
@@ -27,36 +26,28 @@ class NotificationResult(BaseModel):
     user_id: str
     notification_sent: bool
     channel: str
-    original_name: Optional[str] = None  # Will be populated from initial data
 
 
 # Define step functions
-async def process_user_data(context: StepContext, resume_data=None):
+async def process_user_data(user_input: UserInput):
     """Process initial user data and create a user profile."""
-    user_input = context.input_data
     
     # Create a user ID and basic profile
     user_id = f"user_{user_input.name.lower().replace(' ', '_')}_{user_input.age}"
     profile = {
         "name": user_input.name,
         "age": user_input.age,
-        "created_at": "2023-05-20T14:30:00Z"
+        "created_at": "2023-05-20T14:30:00Z"  # In a real app, use current timestamp
     }
     
     # Simulate processing delay
-    await asyncio.sleep(1.0)
+    await asyncio.sleep(0.5)
     
     return ProcessedUserData(user_id=user_id, profile=profile)
 
 
-async def enrich_user_data(context: StepContext, resume_data=None):
+async def enrich_user_data(processed_data: ProcessedUserData):
     """Enrich user data with additional information."""
-    processed_data = context.input_data
-    
-    # Access the initial data to demonstrate context usage
-    initial_data = context.get_initial_data()
-    print(f"   [Enrichment] Original user name: {initial_data.name}")
-    
     # Add preferences based on user age
     if processed_data.profile["age"] < 18:
         preferences = ["games", "music", "education"]
@@ -66,7 +57,7 @@ async def enrich_user_data(context: StepContext, resume_data=None):
         preferences = ["news", "cooking", "health"]
     
     # Simulate processing delay
-    await asyncio.sleep(0.8)
+    await asyncio.sleep(0.5)
     
     return EnrichedUserData(
         user_id=processed_data.user_id,
@@ -75,58 +66,31 @@ async def enrich_user_data(context: StepContext, resume_data=None):
     )
 
 
-async def send_email_notification(context: StepContext, resume_data=None):
+async def send_email_notification(user_data: EnrichedUserData):
     """Send email notification to the user."""
-    user_data = context.input_data
-    
-    # Access the initial user input from the workflow context
-    initial_data = context.get_initial_data()
-    
-    # Access the processed data step's result using the step ID
-    try:
-        # Step ID is based on the step name: "process user data" -> "process_user_data"
-        process_step_result = context.get_step_result("process_user_data")
-        print(f"   [Email] Using process step result: {process_step_result.user_id}")
-    except KeyError as e:
-        # Print available step IDs for debugging
-        print(f"   [Email] Process step result not found. Available steps: {list(context.step_results.keys())}")
-    
     # Simulate sending an email
-    await asyncio.sleep(0.5)
+    print(f"Sending email to user {user_data.user_id}")
+    await asyncio.sleep(0.2)
     
     return NotificationResult(
         user_id=user_data.user_id,
         notification_sent=True,
-        channel="email",
-        original_name=initial_data.name  # Use initial data
+        channel="email"
     )
 
 
-async def send_sms_notification(context: StepContext, resume_data=None):
+async def send_sms_notification(user_data: EnrichedUserData):
     """Send SMS notification to the user."""
-    user_data = context.input_data
-    
-    # Access the initial user input from the workflow context
-    initial_data = context.get_initial_data()
-    
-    # Access the enriched data to demonstrate context usage
-    try:
-        # Step ID is based on the step name: "enrich user data" -> "enrich_user_data"
-        enrich_step_result = context.get_step_result("enrich_user_data")
-        print(f"   [SMS] Using preferences from enrich step: {enrich_step_result.preferences}")
-    except KeyError:
-        # Print available step IDs for debugging
-        print(f"   [SMS] Enrich step result not found. Available steps: {list(context.step_results.keys())}")
-    
     # Simulate sending an SMS
-    await asyncio.sleep(0.3)
+    print(f"Sending SMS to user {user_data.user_id}")
+    await asyncio.sleep(0.2)
     
     return NotificationResult(
         user_id=user_data.user_id,
         notification_sent=True,
-        channel="sms",
-        original_name=initial_data.name  # Use initial data
+        channel="sms"
     )
+
 
 
 async def handle_workflow_event(event: WorkflowEvent):
@@ -145,16 +109,14 @@ async def handle_workflow_event(event: WorkflowEvent):
 
 
 async def main():
-    # Create steps with explicit IDs for easy reference
+    # Create steps
     process_step = Step(
         name="Process User Data",
         description="Processes raw user input and creates a user profile",
         input_schema=UserInput,
         output_schema=ProcessedUserData,
-        func=process_user_data
+        func=process_user_data,
     )
-    # Print the generated step ID for debugging
-    print(f"Process step ID: {process_step.id}")
     
     enrich_step = Step(
         name="Enrich User Data",
@@ -163,8 +125,6 @@ async def main():
         output_schema=EnrichedUserData,
         func=enrich_user_data
     )
-    # Print the generated step ID for debugging
-    print(f"Enrich step ID: {enrich_step.id}")
     
     email_step = Step(
         name="Send Email Notification",
@@ -182,24 +142,22 @@ async def main():
         func=send_sms_notification
     )
     
-    # Create workflow
+    # Create a workflow
     user_onboarding = Workflow(
         name="User Onboarding",
         description="Onboards a new user and sends welcome notifications",
         input_schema=UserInput
     )
     
-    # Define workflow execution pattern
+    # Define the workflow execution pattern
     user_onboarding.then(process_step).then(enrich_step).parallel([email_step, sms_step])
     
-    # Execute workflow with streaming updates
-    input_data = UserInput(name="Jane Smith", age=28)
-    
+    # Execute the workflow
+    input_data = UserInput(name="John Doe", age=25)
     print("\n=== Running workflow with StepContext for data sharing ===\n")
     
     async for event in user_onboarding.run_streamed(input_data):
         await handle_workflow_event(event)
-
 
 if __name__ == "__main__":
     asyncio.run(main()) 
