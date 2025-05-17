@@ -1,21 +1,18 @@
-from typing import Callable, Generic, Type, TypeVar
+from typing import Callable, Generic, Type, Any, Dict
 from pydantic import BaseModel
+from workflow.models import InputType, OutputType, StepContext
 
-from workflow.context import StepContext
-
-InputType = TypeVar("InputType", bound=BaseModel)
-OutputType = TypeVar("OutputType", bound=BaseModel)
 
 class Step(Generic[InputType, OutputType]):
     """
     A Step is an individual unit of work with defined inputs and outputs.
     
     Attributes:
+        id: The unique identifier of the step
         name: The name of the step
         description: A brief description of what the step does
         input_schema: The Pydantic model class for step inputs
         output_schema: The Pydantic model class for step outputs
-        resume_schema: Optional Pydantic model class for resuming interrupted steps
         func: The function that implements the step logic
     """
     
@@ -25,31 +22,29 @@ class Step(Generic[InputType, OutputType]):
         description: str,
         input_schema: Type[InputType],
         output_schema: Type[OutputType],
-        func: Callable[[InputType], OutputType],
+        func: Callable[[InputType], Any],
+        step_id: str = None,
     ):
         self.name = name
         self.description = description
         self.input_schema = input_schema
         self.output_schema = output_schema
         self.func = func
-        self.id = name.lower().replace(" ", "_")
+        self.id = step_id or name.lower().replace(" ", "_")
     
     async def execute(
         self, 
         context: StepContext
     ) -> OutputType:
         """
-        Execute the step with the given input data or context.
+        Execute the step with the given context.
         
         Args:
-            context_or_input: Either a StepContext object or the input data for the step
-            resume_data: Optional data for resuming an interrupted step
+            context: The execution context containing input data and step results
             
         Returns:
             The output data from the step
         """
-        # Check if we're receiving a StepContext or raw input data
-
         input_data = context.input_data
         
         # Validate input data
@@ -59,6 +54,7 @@ class Step(Generic[InputType, OutputType]):
             else input_data
         )
         
+        # Execute the step function
         result = await self.func(validated_input)
         
         # Validate output data
