@@ -1,55 +1,102 @@
-from typing import  Generic, List, Type
+from typing import List, Type, Optional, Union, Sequence
+from pydantic import BaseModel
 
-from workflow.models import InputType, OutputType
-from workflow.node import WorkflowNode, StepNode, ParallelNode
 from workflow.step import Step
 
-
-class Workflow(Generic[InputType, OutputType]):
+class Workflow:
     """
-    A Workflow orchestrates the execution of Steps with defined execution patterns.
+    A workflow is a sequence of steps that can be executed in order.
     
-    Attributes:
-        name: The name of the workflow
-        description: A brief description of what the workflow does
-        input_schema: The Pydantic model class for workflow inputs
-        nodes: The execution graph of the workflow
+    Workflows define a sequence of processing steps that transform
+    an initial input into a final output, with steps organized to run
+    either sequentially or in parallel.
     """
     
     def __init__(
         self,
         name: str,
-        description: str,
-        input_schema: Type[InputType],
+        input_schema: Type[BaseModel],
+        description: str = "",
     ):
+        """
+        Initialize a workflow.
+        
+        Args:
+            name: The name of the workflow
+            input_schema: The Pydantic model for validating the workflow input
+            description: A description of what the workflow does
+        """
         self.name = name
         self.description = description
         self.input_schema = input_schema
-        self.nodes: List[WorkflowNode] = []
+        self.nodes = []
+        self._last_step_output_schema = input_schema
     
-    def then(self, step: Step) -> "Workflow":
+    def add_step(self, step: Step) -> 'Workflow':
         """
-        Add a step to be executed sequentially after the previous steps.
+        Add a single step to the workflow.
         
         Args:
-            step: The step to add to the workflow
+            step: The step to add
             
         Returns:
-            The workflow instance for chaining
+            The workflow object for method chaining
         """
+        # Validate that the step's input schema matches the previous step's output schema
+        if step.input_schema != self._last_step_output_schema:
+            raise ValueError(
+                f"Step '{step.name}' input schema {step.input_schema} "
+                f"doesn't match previous step's output schema {self._last_step_output_schema}"
+            )
+        
+        # Add the step as a regular node
+        from workflow.node import StepNode
         self.nodes.append(StepNode(step))
+        
+        # Update the last step output schema
+        self._last_step_output_schema = step.output_schema
+        
         return self
     
-    def parallel(self, steps: List[Step]) -> "Workflow":
+    def add_parallel_steps(self, steps: Sequence[Step]) -> 'Workflow':
         """
-        Add steps to be executed in parallel.
+        Add multiple steps to be executed in parallel.
+        
+        All steps must accept the same input schema (matching the previous step's output),
+        but can have different output schemas. The output will be a dictionary mapping
+        step IDs to their results.
         
         Args:
-            steps: The steps to execute in parallel
+            steps: The steps to add for parallel execution
             
         Returns:
-            The workflow instance for chaining
+            The workflow object for method chaining
         """
+        if not steps:
+            raise ValueError("No steps provided for parallel execution")
+        
+        # Validate that all steps have the same input schema, matching the previous step's output schema
+        for step in steps:
+            if step.input_schema != self._last_step_output_schema:
+                raise ValueError(
+                    f"Step '{step.name}' input schema {step.input_schema} "
+                    f"doesn't match previous step's output schema {self._last_step_output_schema}"
+                )
+        
+        # Add the steps as a parallel node
+        from workflow.node import ParallelNode
         self.nodes.append(ParallelNode(steps))
-        # Parallel execution results in a dictionary of {step_id: step_output}
+        
+        # The output schema of a parallel node is a dict of step IDs to results
+        self._last_step_output_schema = dict
+        
         return self
+    
+    # Convenient aliases
+    def then(self, step: Step) -> 'Workflow':
+        """Alias for add_step."""
+        return self.add_step(step)
+    
+    def parallel(self, steps: Sequence[Step]) -> 'Workflow':
+        """Alias for add_parallel_steps."""
+        return self.add_parallel_steps(steps)

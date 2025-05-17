@@ -4,14 +4,14 @@ with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setup(
-    name="python-workflow-manager",
+    name="workflow-py",
     version="0.1.0",
     author="Antonio Neto",
-    author_email="your.email@example.com",  # Update this with your email
-    description="A simple, type-safe workflow orchestration library for Python",
+    author_email="your.email@example.com",
+    description="A simple, flexible workflow library for Python",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/yourusername/workflow-poc",  # Update this with your repo URL
+    url="https://github.com/yourusername/workflow-py",
     packages=find_packages(),
     classifiers=[
         "Development Status :: 4 - Beta",
@@ -28,6 +28,8 @@ setup(
     python_requires=">=3.8",
     install_requires=[
         "pydantic>=2.0.0",
-        "typing-extensions>=4.0.0",
     ],
+    extras_require={
+        "celery": ["celery>=5.0.0"],
+    },
 ) 

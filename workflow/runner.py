@@ -1,59 +1,159 @@
 import time
-from typing import Any, AsyncGenerator
+import asyncio
+from typing import Any, AsyncGenerator, Dict, List, Optional
+
 from workflow.models import StepContext
 from workflow.workflow import Workflow
 from workflow.node import StepNode, ParallelNode
 from workflow.event import (
-    Event,
-    WorkflowStartedEvent, WorkflowCompletedEvent,
-    WorkflowFailedEvent
+    Event, WorkflowStartedEvent, WorkflowCompletedEvent, WorkflowFailedEvent
 )
+
+class TaskExecutor:
+    """Base class for workflow task execution backends."""
+    
+    async def execute_task(self, func, *args, **kwargs) -> Any:
+        """Execute a single task using the executor."""
+        return await func(*args, **kwargs)
+    
+    async def execute_tasks_parallel(self, tasks: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Execute multiple tasks in parallel using the executor."""
+        results = {}
+        coroutines = []
+        
+        for task in tasks:
+            task_id = task["id"]
+            func = task["func"]
+            args = task.get("args", [])
+            kwargs = task.get("kwargs", {})
+            
+            coroutines.append(self._run_and_store(task_id, func, args, kwargs))
+        
+        # Run all coroutines in parallel
+        completed = await asyncio.gather(*coroutines)
+        
+        # Store results by task ID
+        for task_id, result in completed:
+            results[task_id] = result
+            
+        return results
+    
+    async def _run_and_store(self, task_id: str, func, args, kwargs) -> tuple:
+        """Helper method to run a task and return its ID with the result."""
+        result = await func(*args, **kwargs)
+        return (task_id, result)
+
+
+class AsyncIOExecutor(TaskExecutor):
+    """Task executor that uses asyncio for execution."""
+    pass  # Uses default TaskExecutor implementation
+
+
+class CeleryExecutor(TaskExecutor):
+    """Task executor that uses Celery for distributed task execution."""
+    
+    def __init__(self, app=None, timeout: int = 60):
+        """
+        Initialize a Celery executor.
+        
+        Args:
+            app: Celery app instance
+            timeout: Timeout in seconds for task execution
+        """
+        self.app = app
+        self.timeout = timeout
+        
+        # Verify Celery is installed
+        try:
+            import celery
+        except ImportError:
+            raise ImportError("Celery is required for CeleryExecutor. Install with 'pip install celery'")
+    
+    async def execute_task(self, func, *args, **kwargs) -> Any:
+        """Execute a single task using Celery."""
+        # Validate the function is a Celery task
+        if not hasattr(func, "delay"):
+            raise ValueError("Function must be a registered Celery task")
+        
+        # Submit task to Celery
+        async_result = func.delay(*args, **kwargs)
+        
+        # Wait for the result asynchronously
+        while not async_result.ready():
+            await asyncio.sleep(0.1)
+            
+        # Return the result
+        return async_result.get(timeout=self.timeout)
+    
+    async def execute_tasks_parallel(self, tasks: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Execute multiple tasks in parallel using Celery."""
+        # Submit all tasks
+        async_results = {}
+        for task in tasks:
+            task_id = task["id"]
+            func = task["func"]
+            args = task.get("args", [])
+            kwargs = task.get("kwargs", {})
+            
+            # Validate the function is a Celery task
+            if not hasattr(func, "delay"):
+                raise ValueError(f"Function for task {task_id} must be a registered Celery task")
+            
+            # Submit task to Celery
+            async_results[task_id] = func.delay(*args, **kwargs)
+        
+        # Wait for all results
+        all_done = False
+        while not all_done:
+            all_done = all(result.ready() for result in async_results.values())
+            if not all_done:
+                await asyncio.sleep(0.1)
+        
+        # Collect results
+        results = {}
+        for task_id, async_result in async_results.items():
+            results[task_id] = async_result.get(timeout=self.timeout)
+            
+        return results
+
 
 class Runner:
     """Base class for workflow execution runners."""
     
-    def __init__(self, workflow: Workflow):
-        self.workflow = workflow
-
-    async def run_sync(self, input_data: Any) -> Any:
-        """Run workflow synchronously and return the final result."""
-        raise NotImplementedError("Subclasses must implement run_sync")
-    
-    async def run_streamed(self, input_data: Any) -> AsyncGenerator[Event, None]:
-        """Run workflow and stream events about progress."""
-        raise NotImplementedError("Subclasses must implement run_streamed")
-    
-class SystemRunner(Runner):
-    """Standard workflow runner implementation."""
-    
-    def __init__(self, workflow: Workflow):
-        super().__init__(workflow)
-        self.input_schema = workflow.input_schema
-    
-    async def run_sync(self, input_data: Any) -> Any:
+    def __init__(self, workflow: Workflow, executor: Optional[TaskExecutor] = None):
         """
-        Execute the workflow with the given input data.
+        Initialize a workflow runner.
+        
+        Args:
+            workflow: The workflow to run
+            executor: The task executor to use (defaults to AsyncIOExecutor)
+        """
+        self.workflow = workflow
+        self.executor = executor or AsyncIOExecutor()
+
+    async def run(self, input_data: Any) -> Any:
+        """
+        Run the workflow synchronously and return the final result.
         
         Args:
             input_data: The input data for the workflow
             
         Returns:
-            The output data from the workflow
+            The final output data from the workflow
         """
         # Validate input data
         validated_input = (
-            self.input_schema.model_validate(input_data)
-            if not isinstance(input_data, self.input_schema)
+            self.workflow.input_schema.model_validate(input_data)
+            if not isinstance(input_data, self.workflow.input_schema)
             else input_data
         )
         
         # Initialize step results storage
         step_results = {}
         
+        # Process each node in sequence
         current_data = validated_input
-        nodes = self.workflow.nodes
-
-        for node in nodes:
+        for node in self.workflow.nodes:
             context = StepContext(
                 input_data=current_data,
                 step_results=step_results,
@@ -61,20 +161,21 @@ class SystemRunner(Runner):
                 workflow_name=self.workflow.name
             )
             
-            result = await node.execute_node(context=context)
+            # Execute the node
+            result = await node.execute(context, self.executor)
             current_data = result
-            # Store results from this node
+            
+            # Store step results
             if isinstance(node, StepNode):
                 step_results[node.step.id] = result
-            elif isinstance(node, ParallelNode):
-                # For parallel nodes, results is a dict of {step_id: result}
+            elif isinstance(node, ParallelNode) and isinstance(result, dict):
                 step_results.update(result)
         
         return current_data
     
-    async def run_streamed(self, input_data: Any) -> AsyncGenerator[Event, None]:
+    async def run_with_events(self, input_data: Any) -> AsyncGenerator[Event, None]:
         """
-        Execute the workflow and stream events about the execution progress.
+        Run the workflow and stream events about the execution progress.
         
         Args:
             input_data: The input data for the workflow
@@ -84,8 +185,8 @@ class SystemRunner(Runner):
         """
         # Validate input data
         validated_input = (
-            self.input_schema.model_validate(input_data)
-            if not isinstance(input_data, self.input_schema)
+            self.workflow.input_schema.model_validate(input_data)
+            if not isinstance(input_data, self.workflow.input_schema)
             else input_data
         )
         
@@ -96,39 +197,32 @@ class SystemRunner(Runner):
         start_time = time.time()
         yield WorkflowStartedEvent(
             workflow_name=self.workflow.name,
-            input_data=validated_input,
-            output_data=None
+            input_data=validated_input
         )
-        current_data = validated_input
         
         try:
             # Process each node in sequence
-            nodes = self.workflow.nodes
-            for node in nodes:
+            current_data = validated_input
+            for node in self.workflow.nodes:
                 context = StepContext(
                     input_data=current_data,
                     step_results=step_results,
                     initial_data=validated_input,
-                    workflow_name=self.workflow.name,
+                    workflow_name=self.workflow.name
                 )
-            
                 
-                async for event, data in node.execute_with_events(context):
-                    if event is not None:  # Skip None events (used for internal data passing)
+                # Execute the node with events
+                async for event, data in node.execute_with_events(context, self.executor):
+                    if event is not None:
                         yield event
                     else:
                         current_data = data
                 
-                # If the last yielded item was an event (not None), update current_data
-                if 'data' in locals():
-                    current_data = data
-                    
-                    # Store results from this node
-                    if isinstance(node, StepNode):
-                        step_results[node.step.id] = current_data
-                    elif isinstance(node, ParallelNode) and isinstance(current_data, dict):
-                        # For parallel nodes, current_data is a dict of {step_id: result}
-                        step_results.update(current_data)
+                # Store step results
+                if isinstance(node, StepNode):
+                    step_results[node.step.id] = current_data
+                elif isinstance(node, ParallelNode) and isinstance(current_data, dict):
+                    step_results.update(current_data)
             
             # Emit workflow completed event
             total_execution_time = time.time() - start_time
@@ -145,4 +239,18 @@ class SystemRunner(Runner):
                 error=str(e),
                 execution_time=total_execution_time
             )
-            raise 
+            raise
+
+
+# Backward compatibility
+class SystemRunner(Runner):
+    """Standard workflow runner implementation (for backward compatibility)."""
+    
+    async def run_sync(self, input_data: Any) -> Any:
+        """Alias for run()."""
+        return await self.run(input_data)
+    
+    async def run_streamed(self, input_data: Any) -> AsyncGenerator[Event, None]:
+        """Alias for run_with_events()."""
+        async for event in self.run_with_events(input_data):
+            yield event 

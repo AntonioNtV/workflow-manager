@@ -1,64 +1,82 @@
-from typing import Callable, Generic, Type, Any, Dict
+import inspect
+import uuid
+from typing import Any, Callable, Type, Optional
+
 from pydantic import BaseModel
-from workflow.models import InputType, OutputType, StepContext
 
-
-class Step(Generic[InputType, OutputType]):
+class Step:
     """
-    A Step is an individual unit of work with defined inputs and outputs.
+    Represents a single step in a workflow.
     
-    Attributes:
-        id: The unique identifier of the step
-        name: The name of the step
-        description: A brief description of what the step does
-        input_schema: The Pydantic model class for step inputs
-        output_schema: The Pydantic model class for step outputs
-        func: The function that implements the step logic
+    A step contains:
+    - A function to execute
+    - Input and output schemas for validation
+    - Metadata like name and description
     """
     
     def __init__(
         self,
         name: str,
-        description: str,
-        input_schema: Type[InputType],
-        output_schema: Type[OutputType],
-        func: Callable[[InputType], Any],
-        step_id: str = None,
+        func: Callable,
+        input_schema: Type[BaseModel],
+        output_schema: Optional[Type] = None,
+        description: str = "",
+        id: Optional[str] = None,
     ):
-        self.name = name
-        self.description = description
-        self.input_schema = input_schema
-        self.output_schema = output_schema
-        self.func = func
-        self.id = step_id or name.lower().replace(" ", "_")
-    
-    async def execute(
-        self, 
-        context: StepContext
-    ) -> OutputType:
         """
-        Execute the step with the given context.
+        Initialize a step.
         
         Args:
-            context: The execution context containing input data and step results
+            name: The name of the step
+            func: The async function to execute for this step
+            input_schema: The Pydantic model for validating the input
+            output_schema: The Pydantic model for validating the output, optional
+            description: A description of what the step does
+            id: Optional ID for the step, will be auto-generated if not provided
+        """
+        self.name = name
+        self.func = func
+        self.input_schema = input_schema
+        self.output_schema = output_schema
+        self.description = description
+        self.id = id or f"{name.lower().replace(' ', '_')}_{uuid.uuid4().hex[:8]}"
+        
+        # Validate function signature
+        self._validate_func()
+    
+    def _validate_func(self) -> None:
+        """Validate that the function has the correct signature."""
+        if not inspect.iscoroutinefunction(self.func):
+            raise ValueError(f"Step function '{self.name}' must be an async function")
+        
+        params = inspect.signature(self.func).parameters
+        if len(params) != 1:
+            raise ValueError(f"Step function '{self.name}' must accept exactly one parameter")
+    
+    async def execute(self, input_data: Any) -> Any:
+        """
+        Execute the step function with the given input data.
+        
+        Args:
+            input_data: The input data for the step
             
         Returns:
             The output data from the step
         """
-        input_data = context.input_data
-        
-        # Validate input data
+        # Validate input data if it's not already an instance of input_schema
         validated_input = (
-            self.input_schema.model_validate(input_data) 
-            if not isinstance(input_data, self.input_schema) 
+            self.input_schema.model_validate(input_data)
+            if not isinstance(input_data, self.input_schema)
             else input_data
         )
         
         # Execute the step function
         result = await self.func(validated_input)
         
-        # Validate output data
-        if not isinstance(result, self.output_schema):
-            result = self.output_schema.model_validate(result)
-            
+        # Validate output if output_schema is provided
+        if self.output_schema is not None and not isinstance(result, self.output_schema):
+            # Only attempt validation for non-primitive types
+            if isinstance(result, (dict, list)) or hasattr(result, "__dict__"):
+                result = self.output_schema.model_validate(result)
+        
         return result 

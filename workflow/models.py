@@ -1,28 +1,9 @@
-from typing import TypeVar, Dict, Any, Optional
-from enum import Enum
+from typing import Dict, Any
 from pydantic import BaseModel
 
-# Common type variables
-InputType = TypeVar("InputType", bound=BaseModel)
-OutputType = TypeVar("OutputType", bound=BaseModel)
-
-# Event related models
-class EventType(Enum):
-    STEP_STARTED = "step_started"
-    STEP_COMPLETED = "step_completed"
-    WORKFLOW_STARTED = "workflow_started"
-    WORKFLOW_COMPLETED = "workflow_completed"
-    WORKFLOW_FAILED = "workflow_failed"
-    STEP_FAILED = "step_failed"
-
-class Event(BaseModel):
-    """Base class for all system events."""
-    type: EventType
-
-# Context related models
 class StepContext(BaseModel):
     """
-    Context object passed to each step during execution.
+    Context object passed to steps during execution.
     
     Provides access to:
     - The input data for the current step
@@ -42,4 +23,19 @@ class StepContext(BaseModel):
     
     def get_initial_data(self) -> Any:
         """Get the initial input data provided to the workflow."""
-        return self.initial_data 
+        return self.initial_data
+
+# Example models used in examples - these would typically be defined by the user
+class UserInput(BaseModel):
+    """User input model for workflow examples."""
+    name: str
+    age: int
+
+class GreetingOutput(BaseModel):
+    """Greeting output model for workflow examples."""
+    message: str
+
+class ProcessedOutput(BaseModel):
+    """Processed output model for workflow examples."""
+    original_message: str
+    processed_data: list[str] 

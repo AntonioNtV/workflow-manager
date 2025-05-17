@@ -1,26 +1,49 @@
-from workflow.models import StepContext, InputType, OutputType, Event, EventType
+"""
+Workflow - A simple Python library for defining and executing workflows.
+
+This library provides a way to define workflows composed of steps that can
+be executed sequentially or in parallel, with support for different task
+execution backends (AsyncIO, Celery, etc.)
+"""
+
+# Core components
 from workflow.step import Step
 from workflow.workflow import Workflow
-from workflow.runner import Runner, SystemRunner
-from workflow.node import WorkflowNode, StepNode, ParallelNode
+from workflow.models import StepContext
+
+# Runners
+from workflow.runner import (
+    Runner, SystemRunner,
+    TaskExecutor, AsyncIOExecutor, CeleryExecutor
+)
+
+# Events
 from workflow.event import (
-    WorkflowEvent, StepEvent,
-    StepStartedEvent, StepCompletedEvent, 
+    Event, EventType,
+    StepStartedEvent, StepCompletedEvent,
     WorkflowStartedEvent, WorkflowCompletedEvent,
     WorkflowFailedEvent
 )
 
+# Example models (for use in examples only)
+from workflow.models import UserInput, GreetingOutput, ProcessedOutput
+
 __all__ = [
-    # Core types
-    "InputType", "OutputType",
+    # Core components
+    "Step", "Workflow", "StepContext",
     
-    # Main components
-    "Step", "Workflow", "Runner", "SystemRunner", "StepContext",
-    "WorkflowNode", "StepNode", "ParallelNode", 
+    # Runners
+    "Runner", "SystemRunner",
+    
+    # Task executors
+    "TaskExecutor", "AsyncIOExecutor", "CeleryExecutor",
     
     # Events
-    "Event", "EventType", "WorkflowEvent", "StepEvent",
+    "Event", "EventType",
     "StepStartedEvent", "StepCompletedEvent",
     "WorkflowStartedEvent", "WorkflowCompletedEvent",
-    "WorkflowFailedEvent"
+    "WorkflowFailedEvent",
+    
+    # Example models
+    "UserInput", "GreetingOutput", "ProcessedOutput"
 ] 

@@ -1,10 +1,8 @@
 import asyncio
-from typing import List
 from pydantic import BaseModel
+from typing import List
 
-from workflow import (
-    Step, Workflow, SystemRunner, StepContext
-)
+from workflow import Step, Workflow, Runner, UserInput, GreetingOutput, ProcessedOutput
 
 # Define input and output models
 class UserInput(BaseModel):
@@ -36,40 +34,40 @@ async def process_data(input_data: GreetingOutput) -> ProcessedOutput:
 # Create workflow steps
 greeting_step = Step(
     name="Create Greeting",
-    description="Creates a personalized greeting message",
+    func=create_greeting,
     input_schema=UserInput,
     output_schema=GreetingOutput,
-    func=create_greeting
+    description="Creates a personalized greeting message"
 )
 
 process_step = Step(
     name="Process Data",
-    description="Processes the greeting into structured data",
+    func=process_data,
     input_schema=GreetingOutput,
     output_schema=ProcessedOutput,
-    func=process_data
+    description="Processes the greeting into structured data"
 )
 
 # Create the workflow
 workflow = Workflow(
     name="Greeting Workflow",
-    description="A simple workflow that creates and processes a greeting",
-    input_schema=UserInput
+    input_schema=UserInput,
+    description="A simple workflow that creates and processes a greeting"
 )
 
 # Add steps to the workflow
 workflow.then(greeting_step).then(process_step)
 
-# Run the workflow synchronously
+# Run the workflow
 async def main():
     # Create a runner
-    runner = SystemRunner(workflow)
+    runner = Runner(workflow)
     
     # Input data
     user_data = UserInput(name="Alice", age=30)
     
-    # Run the workflow synchronously
-    result = await runner.run_sync(user_data)
+    # Run the workflow
+    result = await runner.run(user_data)
     
     # Print the results
     print(f"Workflow result: {result}")
