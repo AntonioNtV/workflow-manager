@@ -3,8 +3,8 @@ from typing import List
 from pydantic import BaseModel
 
 from workflow import (
-    Step, Workflow, SystemRunner, StepContext,
-    Event, WorkflowStartedEvent, WorkflowCompletedEvent,
+    Step, Workflow, SystemRunner,
+    WorkflowStartedEvent, WorkflowCompletedEvent,
     StepStartedEvent, StepCompletedEvent
 )
 
@@ -33,6 +33,8 @@ async def process_data(input_data: GreetingOutput) -> ProcessedOutput:
     # Simulate some processing time
     await asyncio.sleep(1)
     # Split the message into words
+    print("Processing data...")
+    print(input_data)
     words = input_data.message.split()
     return ProcessedOutput(
         original_message=input_data.message,

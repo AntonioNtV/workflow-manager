@@ -32,7 +32,7 @@ class Workflow:
         self.nodes = []
         self._last_step_output_schema = input_schema
     
-    def add_step(self, step: Step) -> 'Workflow':
+    def __add_step(self, step: Step) -> 'Workflow':
         """
         Add a single step to the workflow.
         
@@ -58,7 +58,7 @@ class Workflow:
         
         return self
     
-    def add_parallel_steps(self, steps: Sequence[Step]) -> 'Workflow':
+    def __add_parallel_steps(self, steps: Sequence[Step]) -> 'Workflow':
         """
         Add multiple steps to be executed in parallel.
         
@@ -95,8 +95,8 @@ class Workflow:
     # Convenient aliases
     def then(self, step: Step) -> 'Workflow':
         """Alias for add_step."""
-        return self.add_step(step)
+        return self.__add_step(step)
     
     def parallel(self, steps: Sequence[Step]) -> 'Workflow':
         """Alias for add_parallel_steps."""
-        return self.add_parallel_steps(steps)
+        return self.__add_parallel_steps(steps)

@@ -14,7 +14,7 @@ from workflow.models import StepContext
 # Runners
 from workflow.runner import (
     Runner, SystemRunner,
-    TaskExecutor, AsyncIOExecutor, CeleryExecutor
+    TaskExecutor, AsyncIOExecutor    
 )
 
 # Events
@@ -36,7 +36,7 @@ __all__ = [
     "Runner", "SystemRunner",
     
     # Task executors
-    "TaskExecutor", "AsyncIOExecutor", "CeleryExecutor",
+    "TaskExecutor", "AsyncIOExecutor",
     
     # Events
     "Event", "EventType",

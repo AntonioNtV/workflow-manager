@@ -47,75 +47,7 @@ class TaskExecutor:
 class AsyncIOExecutor(TaskExecutor):
     """Task executor that uses asyncio for execution."""
     pass  # Uses default TaskExecutor implementation
-
-
-class CeleryExecutor(TaskExecutor):
-    """Task executor that uses Celery for distributed task execution."""
     
-    def __init__(self, app=None, timeout: int = 60):
-        """
-        Initialize a Celery executor.
-        
-        Args:
-            app: Celery app instance
-            timeout: Timeout in seconds for task execution
-        """
-        self.app = app
-        self.timeout = timeout
-        
-        # Verify Celery is installed
-        try:
-            import celery
-        except ImportError:
-            raise ImportError("Celery is required for CeleryExecutor. Install with 'pip install celery'")
-    
-    async def execute_task(self, func, *args, **kwargs) -> Any:
-        """Execute a single task using Celery."""
-        # Validate the function is a Celery task
-        if not hasattr(func, "delay"):
-            raise ValueError("Function must be a registered Celery task")
-        
-        # Submit task to Celery
-        async_result = func.delay(*args, **kwargs)
-        
-        # Wait for the result asynchronously
-        while not async_result.ready():
-            await asyncio.sleep(0.1)
-            
-        # Return the result
-        return async_result.get(timeout=self.timeout)
-    
-    async def execute_tasks_parallel(self, tasks: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """Execute multiple tasks in parallel using Celery."""
-        # Submit all tasks
-        async_results = {}
-        for task in tasks:
-            task_id = task["id"]
-            func = task["func"]
-            args = task.get("args", [])
-            kwargs = task.get("kwargs", {})
-            
-            # Validate the function is a Celery task
-            if not hasattr(func, "delay"):
-                raise ValueError(f"Function for task {task_id} must be a registered Celery task")
-            
-            # Submit task to Celery
-            async_results[task_id] = func.delay(*args, **kwargs)
-        
-        # Wait for all results
-        all_done = False
-        while not all_done:
-            all_done = all(result.ready() for result in async_results.values())
-            if not all_done:
-                await asyncio.sleep(0.1)
-        
-        # Collect results
-        results = {}
-        for task_id, async_result in async_results.items():
-            results[task_id] = async_result.get(timeout=self.timeout)
-            
-        return results
-
 
 class Runner:
     """Base class for workflow execution runners."""
@@ -163,6 +95,7 @@ class Runner:
             
             # Execute the node
             result = await node.execute(context, self.executor)
+
             current_data = result
             
             # Store step results
@@ -210,14 +143,15 @@ class Runner:
                     initial_data=validated_input,
                     workflow_name=self.workflow.name
                 )
-                
+
                 # Execute the node with events
                 async for event, data in node.execute_with_events(context, self.executor):
                     if event is not None:
+                        current_data = data
                         yield event
                     else:
                         current_data = data
-                
+            
                 # Store step results
                 if isinstance(node, StepNode):
                     step_results[node.step.id] = current_data
