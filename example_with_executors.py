@@ -1,9 +1,7 @@
 import asyncio
-from typing import List, Dict
 
 from workflow import (
-    Step, Workflow, SystemRunner, StepContext, 
-    AsyncIOExecutor, CeleryExecutor,
+    Step, Workflow, SystemRunner, 
     UserInput, GreetingOutput, ProcessedOutput
 )
 
@@ -29,7 +27,8 @@ async def process_data(input_data: GreetingOutput) -> ProcessedOutput:
 async def analyze_data(input_data: GreetingOutput) -> dict:
     """Analyze the greeting data."""
     # Simulate some processing time
-    await asyncio.sleep(1.5)
+    print("Analyzing data...")
+    await asyncio.sleep(20)
     
     # Count characters and words
     char_count = len(input_data.message)
@@ -44,7 +43,8 @@ async def analyze_data(input_data: GreetingOutput) -> dict:
 async def translate_greeting(input_data: GreetingOutput) -> dict:
     """Translate the greeting to Spanish."""
     # Simulate some processing time
-    await asyncio.sleep(2)
+    print("Translating greeting...")
+    await asyncio.sleep(20)
     
     # Simple translation logic for demonstration
     parts = input_data.message.split(", ")
@@ -119,13 +119,14 @@ async def main():
     print("=" * 50)
     
     # Default AsyncIO executor (already used by default)
-    async_runner = SystemRunner(sequential_workflow)
-    async_result = await async_runner.run_sync(user_data)
-    print(f"Sequential workflow result: {async_result}")
+    #async_runner = SystemRunner(sequential_workflow)
+    #async_result = await async_runner.run_sync(user_data)
+    #print(f"Sequential workflow result: {async_result}")
     
     # Run parallel workflow with AsyncIO executor
     async_parallel_runner = SystemRunner(parallel_workflow)
     async_parallel_result = await async_parallel_runner.run_sync(user_data)
+
     print(f"Parallel workflow results:")
     for step_id, result in async_parallel_result.items():
         print(f"  {step_id}: {result}")
@@ -134,98 +135,8 @@ async def main():
     print("Running with Celery Executor (commented out)")
     print("=" * 50)
     print("To use Celery, uncomment the code below and ensure Celery is installed and configured")
-    
-    # To use with Celery, uncomment the following code and set up Celery tasks
-    """
-    # Setup Celery (this would typically be in a separate module)
-    from celery import Celery
-    
-    app = Celery('workflow_app', broker='pyamqp://guest@localhost//')
-    
-    # Decorator to convert async functions to Celery tasks
-    def async_celery_task(func):
-        @app.task
-        def wrapper(*args, **kwargs):
-            # Run the async function in a new event loop
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            result = loop.run_until_complete(func(*args, **kwargs))
-            loop.close()
-            return result
-        
-        return wrapper
-    
-    # Register the functions as Celery tasks
-    celery_greeting = async_celery_task(create_greeting)
-    celery_process = async_celery_task(process_data)
-    celery_analyze = async_celery_task(analyze_data)
-    celery_translate = async_celery_task(translate_greeting)
-    
-    # Create new steps with Celery tasks
-    greeting_celery_step = Step(
-        name="Create Greeting (Celery)",
-        description="Creates a personalized greeting message",
-        input_schema=UserInput,
-        output_schema=GreetingOutput,
-        func=celery_greeting
-    )
-    
-    process_celery_step = Step(
-        name="Process Data (Celery)",
-        description="Processes the greeting into structured data",
-        input_schema=GreetingOutput,
-        output_schema=ProcessedOutput,
-        func=celery_process
-    )
-    
-    analyze_celery_step = Step(
-        name="Analyze Data (Celery)",
-        description="Analyzes the greeting data",
-        input_schema=GreetingOutput,
-        output_schema=dict,
-        func=celery_analyze
-    )
-    
-    translate_celery_step = Step(
-        name="Translate Greeting (Celery)",
-        description="Translates the greeting to Spanish",
-        input_schema=GreetingOutput,
-        output_schema=dict,
-        func=celery_translate
-    )
-    
-    # Create Celery workflows
-    celery_sequential_workflow = Workflow(
-        name="Celery Sequential Workflow",
-        description="A sequential workflow with Celery tasks",
-        input_schema=UserInput
-    )
-    celery_sequential_workflow.then(greeting_celery_step).then(process_celery_step)
-    
-    celery_parallel_workflow = Workflow(
-        name="Celery Parallel Workflow",
-        description="A parallel workflow with Celery tasks",
-        input_schema=UserInput
-    )
-    celery_parallel_workflow.then(greeting_celery_step).parallel([
-        analyze_celery_step, translate_celery_step
-    ])
-    
-    # Create Celery executor
-    celery_executor = CeleryExecutor(app=app)
-    
-    # Run with Celery executor
-    celery_runner = SystemRunner(celery_sequential_workflow, executor=celery_executor)
-    celery_result = await celery_runner.run_sync(user_data)
-    print(f"Celery sequential workflow result: {celery_result}")
-    
-    # Run parallel workflow with Celery
-    celery_parallel_runner = SystemRunner(celery_parallel_workflow, executor=celery_executor)
-    celery_parallel_result = await celery_parallel_runner.run_sync(user_data)
-    print(f"Celery parallel workflow results:")
-    for step_id, result in celery_parallel_result.items():
-        print(f"  {step_id}: {result}")
-    """
+
+
 
 if __name__ == "__main__":
     asyncio.run(main()) 
