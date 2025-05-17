@@ -44,7 +44,6 @@ class StepNode(WorkflowNode):
         ), context.input_data)
         
         # Execute the step
-        print(f"Executing step {step.name} with context: {context}")
         result = await self.step.execute(context)
                 
         # Emit step completed event

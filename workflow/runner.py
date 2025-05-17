@@ -61,7 +61,7 @@ class SystemRunner(Runner):
                 workflow_name=self.workflow.name
             )
             
-            result = await node.execute_node(context)
+            result = await node.execute_node(context=context)
             current_data = result
             # Store results from this node
             if isinstance(node, StepNode):
