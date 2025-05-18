@@ -174,17 +174,3 @@ class Runner:
                 execution_time=total_execution_time
             )
             raise
-
-
-# Backward compatibility
-class SystemRunner(Runner):
-    """Standard workflow runner implementation (for backward compatibility)."""
-    
-    async def run_sync(self, input_data: Any) -> Any:
-        """Alias for run()."""
-        return await self.run(input_data)
-    
-    async def run_streamed(self, input_data: Any) -> AsyncGenerator[Event, None]:
-        """Alias for run_with_events()."""
-        async for event in self.run_with_events(input_data):
-            yield event 

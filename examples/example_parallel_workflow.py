@@ -1,9 +1,9 @@
 import asyncio
-from typing import List, Dict
+from typing import Dict
 from pydantic import BaseModel
 
 from workflow import (
-    Step, Workflow, SystemRunner, StepContext
+    Step, Workflow, Runner
 )
 
 # Define input and output models
@@ -139,7 +139,7 @@ workflow.parallel([name_step, age_step, location_step]).then(combine_step)
 # Run the workflow
 async def main():
     # Create a runner
-    runner = SystemRunner(workflow)
+    runner = Runner(workflow)
     
     # Input data
     user_data = UserData(
@@ -153,7 +153,7 @@ async def main():
     
     # Run the workflow and time it
     start_time = asyncio.get_event_loop().time()
-    result = await runner.run_sync(user_data)
+    result = await runner.run(user_data)
     end_time = asyncio.get_event_loop().time()
     
     # Print the results

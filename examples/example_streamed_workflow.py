@@ -1,9 +1,9 @@
 import asyncio
-from typing import List, Dict
+from typing import Dict
 from pydantic import BaseModel
 
 from workflow import (
-    Step, Workflow, SystemRunner, StepContext
+    Step, Workflow, Runner
 )
 
 # Define input and output models
@@ -140,7 +140,7 @@ workflow.parallel([name_step, age_step, location_step]).then(combine_step)
 # Run the workflow with event streaming
 async def main():
  # Create a runner
-    runner = SystemRunner(workflow)
+    runner = Runner(workflow)
     
     # Input data
     user_data = UserData(
@@ -156,7 +156,7 @@ async def main():
     print("Starting workflow execution with event streaming...")
     
     result = None
-    async for event in runner.run_streamed(user_data):
+    async for event in runner.run_with_events(user_data):
         print(event)
         print("=" * 100)
         result = event

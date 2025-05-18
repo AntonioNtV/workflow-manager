@@ -1,7 +1,7 @@
 import asyncio
 
 from workflow import (
-    Step, Workflow, SystemRunner, 
+    Step, Workflow, Runner, 
 )
 
 from models import UserInput, GreetingOutput
@@ -96,8 +96,8 @@ async def main():
     print("=" * 50)
     
     # Run parallel workflow with AsyncIO executor
-    async_parallel_runner = SystemRunner(parallel_workflow)
-    async_parallel_result = await async_parallel_runner.run_sync(user_data)
+    async_parallel_runner = Runner(parallel_workflow)
+    async_parallel_result = await async_parallel_runner.run(user_data)
 
     print(f"Parallel workflow results:")
     for step_id, result in async_parallel_result.items():

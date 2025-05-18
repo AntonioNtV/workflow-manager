@@ -13,7 +13,7 @@ from workflow.models import StepContext
 
 # Runners
 from workflow.runner import (
-    Runner, SystemRunner,
+    Runner,
     TaskExecutor, AsyncIOExecutor    
 )
 
@@ -30,7 +30,7 @@ __all__ = [
     "Step", "Workflow", "StepContext",
     
     # Runners
-    "Runner", "SystemRunner",
+    "Runner",
     
     # Task executors
     "TaskExecutor", "AsyncIOExecutor",
