@@ -91,6 +91,7 @@ async def combine_results(input_data: Dict[str, any]) -> FinalOutput:
 
 # Create workflow steps
 name_step = Step(
+    id="process_name",
     name="Process Name",
     description="Processes the user's name",
     input_schema=UserData,
@@ -99,6 +100,7 @@ name_step = Step(
 )
 
 age_step = Step(
+    id="process_age",
     name="Process Age",
     description="Processes the user's age",
     input_schema=UserData,
@@ -107,6 +109,7 @@ age_step = Step(
 )
 
 location_step = Step(
+    id="process_location",
     name="Process Location",
     description="Processes the user's location",
     input_schema=UserData,
@@ -115,6 +118,7 @@ location_step = Step(
 )
 
 combine_step = Step(
+    id="combine_results",
     name="Combine Results",
     description="Combines the results from parallel processing",
     input_schema=dict,  # Using dict as the schema for simplicity

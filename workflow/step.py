@@ -18,9 +18,9 @@ class Step:
         name: str,
         func: Callable,
         input_schema: Type[BaseModel],
+        id: str,
         output_schema: Optional[Type] = None,
         description: str = "",
-        id: Optional[str] = None,
     ):
         """
         Initialize a step.
@@ -29,16 +29,16 @@ class Step:
             name: The name of the step
             func: The async function to execute for this step
             input_schema: The Pydantic model for validating the input
+            id: ID for the step
             output_schema: The Pydantic model for validating the output, optional
             description: A description of what the step does
-            id: Optional ID for the step, will be auto-generated if not provided
         """
         self.name = name
         self.func = func
         self.input_schema = input_schema
         self.output_schema = output_schema
         self.description = description
-        self.id = id or f"{name.lower().replace(' ', '_')}"
+        self.id = id
         
         # Validate function signature
         self._validate_func()

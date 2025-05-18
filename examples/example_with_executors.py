@@ -2,8 +2,9 @@ import asyncio
 
 from workflow import (
     Step, Workflow, SystemRunner, 
-    UserInput, GreetingOutput, ProcessedOutput
 )
+
+from models import UserInput, GreetingOutput
 
 # Define step functions
 async def create_greeting(input_data: UserInput) -> GreetingOutput:
@@ -12,17 +13,6 @@ async def create_greeting(input_data: UserInput) -> GreetingOutput:
     await asyncio.sleep(1)
     message = f"Hello {input_data.name}, you are {input_data.age} years old!"
     return GreetingOutput(message=message)
-
-async def process_data(input_data: GreetingOutput) -> ProcessedOutput:
-    """Process the greeting into a structured format."""
-    # Simulate some processing time
-    await asyncio.sleep(1)
-    # Split the message into words
-    words = input_data.message.split()
-    return ProcessedOutput(
-        original_message=input_data.message,
-        processed_data=words
-    )
 
 async def analyze_data(input_data: GreetingOutput) -> dict:
     """Analyze the greeting data."""
@@ -62,6 +52,7 @@ async def translate_greeting(input_data: GreetingOutput) -> dict:
 
 # Create workflow steps
 greeting_step = Step(
+    id="create_greeting",
     name="Create Greeting",
     description="Creates a personalized greeting message",
     input_schema=UserInput,
@@ -69,15 +60,8 @@ greeting_step = Step(
     func=create_greeting
 )
 
-process_step = Step(
-    name="Process Data",
-    description="Processes the greeting into structured data",
-    input_schema=GreetingOutput,
-    output_schema=ProcessedOutput,
-    func=process_data
-)
-
 analyze_step = Step(
+    id="analyze_data",
     name="Analyze Data",
     description="Analyzes the greeting data",
     input_schema=GreetingOutput,
@@ -86,20 +70,13 @@ analyze_step = Step(
 )
 
 translate_step = Step(
+    id="translate_greeting",
     name="Translate Greeting",
     description="Translates the greeting to Spanish",
     input_schema=GreetingOutput,
     output_schema=dict,
     func=translate_greeting
 )
-
-# Create a sequential workflow
-sequential_workflow = Workflow(
-    name="Sequential Workflow",
-    description="A sequential workflow with two steps",
-    input_schema=UserInput
-)
-sequential_workflow.then(greeting_step).then(process_step)
 
 # Create a parallel workflow
 parallel_workflow = Workflow(
@@ -117,11 +94,6 @@ async def main():
     print("=" * 50)
     print("Running with AsyncIO Executor (Default)")
     print("=" * 50)
-    
-    # Default AsyncIO executor (already used by default)
-    #async_runner = SystemRunner(sequential_workflow)
-    #async_result = await async_runner.run_sync(user_data)
-    #print(f"Sequential workflow result: {async_result}")
     
     # Run parallel workflow with AsyncIO executor
     async_parallel_runner = SystemRunner(parallel_workflow)

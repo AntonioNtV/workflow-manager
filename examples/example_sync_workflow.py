@@ -2,7 +2,8 @@ import asyncio
 from pydantic import BaseModel
 from typing import List
 
-from workflow import Step, Workflow, Runner, UserInput, GreetingOutput, ProcessedOutput
+from workflow import Step, Workflow, Runner
+from models import UserInput, GreetingOutput, ProcessedOutput
 
 # Define input and output models
 class UserInput(BaseModel):
@@ -33,6 +34,7 @@ async def process_data(input_data: GreetingOutput) -> ProcessedOutput:
 
 # Create workflow steps
 greeting_step = Step(
+    id="create_greeting",
     name="Create Greeting",
     func=create_greeting,
     input_schema=UserInput,
@@ -41,6 +43,7 @@ greeting_step = Step(
 )
 
 process_step = Step(
+    id="process_data",
     name="Process Data",
     func=process_data,
     input_schema=GreetingOutput,

@@ -25,9 +25,6 @@ from workflow.event import (
     WorkflowFailedEvent
 )
 
-# Example models (for use in examples only)
-from workflow.models import UserInput, GreetingOutput, ProcessedOutput
-
 __all__ = [
     # Core components
     "Step", "Workflow", "StepContext",
@@ -43,7 +40,4 @@ __all__ = [
     "StepStartedEvent", "StepCompletedEvent",
     "WorkflowStartedEvent", "WorkflowCompletedEvent",
     "WorkflowFailedEvent",
-    
-    # Example models
-    "UserInput", "GreetingOutput", "ProcessedOutput"
 ] 

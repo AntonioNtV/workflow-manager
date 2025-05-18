@@ -91,39 +91,39 @@ async def combine_results(input_data: Dict[str, any]) -> FinalOutput:
 
 # Create workflow steps
 name_step = Step(
+    id="process_name",
     name="Process Name",
     description="Processes the user's name",
     input_schema=UserData,
     output_schema=NameOutput,
     func=process_name,
-    id="process_name"
 )
 
 age_step = Step(
+    id="process_age",
     name="Process Age",
     description="Processes the user's age",
     input_schema=UserData,
     output_schema=AgeOutput,
     func=process_age,
-    id="process_age"
 )
 
 location_step = Step(
+    id="process_location",
     name="Process Location",
     description="Processes the user's location",
     input_schema=UserData,
     output_schema=LocationOutput,
     func=process_location,
-    id="process_location"
 )
 
 combine_step = Step(
+    id="combine_results",
     name="Combine Results",
     description="Combines the results from parallel processing",
     input_schema=dict,  # Using dict as the schema for simplicity
     output_schema=FinalOutput,
     func=combine_results,
-    id="combine_results"
 )
 
 # Create the workflow

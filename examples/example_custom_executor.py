@@ -2,10 +2,9 @@ import asyncio
 import logging
 from typing import Any, List, Dict
 
-from workflow import (
-    Step, Workflow, Runner, TaskExecutor,
-    UserInput, GreetingOutput, ProcessedOutput
-)
+from workflow import Step, Workflow, Runner, TaskExecutor
+
+from models import UserInput, GreetingOutput, ProcessedOutput   
 
 # Configure logging
 logging.basicConfig(
@@ -81,6 +80,7 @@ async def analyze_greeting(input_data: GreetingOutput) -> dict:
 
 # Create workflow steps
 greeting_step = Step(
+    id="create_greeting",
     name="Create Greeting",
     func=create_greeting,
     input_schema=UserInput,
@@ -89,6 +89,7 @@ greeting_step = Step(
 )
 
 process_step = Step(
+    id="process_data",
     name="Process Data",
     func=process_data,
     input_schema=GreetingOutput,
@@ -97,6 +98,7 @@ process_step = Step(
 )
 
 analyze_step = Step(
+    id="analyze_greeting",
     name="Analyze Greeting",
     func=analyze_greeting,
     input_schema=GreetingOutput,

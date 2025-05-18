@@ -24,18 +24,3 @@ class StepContext(BaseModel):
     def get_initial_data(self) -> Any:
         """Get the initial input data provided to the workflow."""
         return self.initial_data
-
-# Example models used in examples - these would typically be defined by the user
-class UserInput(BaseModel):
-    """User input model for workflow examples."""
-    name: str
-    age: int
-
-class GreetingOutput(BaseModel):
-    """Greeting output model for workflow examples."""
-    message: str
-
-class ProcessedOutput(BaseModel):
-    """Processed output model for workflow examples."""
-    original_message: str
-    processed_data: list[str] 
