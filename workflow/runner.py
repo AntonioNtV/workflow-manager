@@ -12,22 +12,33 @@ from workflow.event import (
 class TaskExecutor:
     """Base class for workflow task execution backends."""
     
-    async def execute_task(self, func, *args, **kwargs) -> Any:
-        """Execute a single task using the executor."""
-        return await func(*args, **kwargs)
+    async def execute_task(self, step, input_data: Any) -> Any:
+        """Execute a single task using the executor.
+        
+        Args:
+            step: The Step object to execute
+            input_data: The input data for the step
+        """
+        return await step.execute(input_data)
     
-    async def execute_tasks_parallel(self, tasks: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """Execute multiple tasks in parallel using the executor."""
+    async def execute_tasks_parallel(self, steps_with_data: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Execute multiple tasks in parallel using the executor.
+        
+        Args:
+            steps_with_data: List of dictionaries containing:
+                - "step": The Step object to execute
+                - "id": The task ID
+                - "input_data": The input data for the step
+        """
         results = {}
         coroutines = []
         
-        for task in tasks:
-            task_id = task["id"]
-            func = task["func"]
-            args = task.get("args", [])
-            kwargs = task.get("kwargs", {})
+        for task in steps_with_data:
+            task_id = task["step"].id
+            step = task["step"]
+            input_data = task["input_data"]
             
-            coroutines.append(self._run_and_store(task_id, func, args, kwargs))
+            coroutines.append(self._run_and_store(task_id, step, input_data))
         
         # Run all coroutines in parallel
         completed = await asyncio.gather(*coroutines)
@@ -38,9 +49,9 @@ class TaskExecutor:
             
         return results
     
-    async def _run_and_store(self, task_id: str, func, args, kwargs) -> tuple:
+    async def _run_and_store(self, task_id: str, step, input_data: Any) -> tuple:
         """Helper method to run a task and return its ID with the result."""
-        result = await func(*args, **kwargs)
+        result = await step.execute(input_data)
         return (task_id, result)
 
 

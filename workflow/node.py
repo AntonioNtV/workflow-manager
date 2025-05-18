@@ -29,7 +29,7 @@ class StepNode(WorkflowNode):
     async def execute(self, context: StepContext, executor=None) -> Any:
         """Execute the step and return its result."""
         if executor:
-            result = await executor.execute_task(self.step.func, context.input_data)
+            result = await executor.execute_task(self.step, context.input_data)
         else:
             result = await self.step.execute(context.input_data)
         return result
@@ -74,8 +74,8 @@ class ParallelNode(WorkflowNode):
             parallel_tasks = [
                 {
                     "id": step.id,
-                    "func": step.func,
-                    "args": [context.input_data],
+                    "step": step,
+                    "input_data": context.input_data,
                 }
                 for step in self.steps
             ]
