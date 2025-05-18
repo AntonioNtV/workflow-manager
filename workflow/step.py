@@ -1,5 +1,4 @@
 import inspect
-import uuid
 from typing import Any, Callable, Type, Optional
 
 from pydantic import BaseModel
@@ -39,7 +38,7 @@ class Step:
         self.input_schema = input_schema
         self.output_schema = output_schema
         self.description = description
-        self.id = id or f"{name.lower().replace(' ', '_')}_{uuid.uuid4().hex[:8]}"
+        self.id = id or f"{name.lower().replace(' ', '_')}"
         
         # Validate function signature
         self._validate_func()
