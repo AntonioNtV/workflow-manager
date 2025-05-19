@@ -30,7 +30,7 @@ class TaskExecutor:
         coroutines = []
         
         for step in steps:
-            task_id = step.id
+            task_id = step.name
             step = step
             input_data = context.input_data
             
@@ -45,7 +45,7 @@ class TaskExecutor:
             
         return results
     
-    async def _run_and_store(self, task_id: UUID, step: Step, input_data: Any) -> Tuple[UUID, Type[BaseModel]]:
+    async def _run_and_store(self, task_id: str, step: Step, input_data: Any) -> Tuple[str, Type[BaseModel]]:
         """Helper method to run a task and return its ID with the result."""
-        result = await step.execute(input_data)
+        result = await step.func(input_data)
         return (task_id, result)

@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Any, Dict
+from typing import Any, Dict, Union
 
 class StepContext(BaseModel):
     """
@@ -10,4 +10,4 @@ class StepContext(BaseModel):
     - Results from previously executed steps
     - The initial input data for the workflow
     """
-    input_data: BaseModel
+    input_data: Any

@@ -75,7 +75,7 @@ class ParallelNode(WorkflowNode):
         
         # Emit completed events for all steps
         for step in self.steps:
-            result = results[step.id]
+            result = results[step.name]
             yield StepCompletedEvent(
                 step_id=step.id,
                 step_name=step.name,

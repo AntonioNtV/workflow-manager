@@ -55,10 +55,9 @@ class Runner:
             context = StepContext(
                 input_data=current_data,
             )
-            
+
             result = await node.execute(context=context, executor=self.executor)
             current_data = result
-
         return current_data
     
     async def run_with_events(self, input_data: BaseModel) -> AsyncGenerator[Union[WorkflowEvent, StepEvent], None]:

@@ -1,10 +1,15 @@
 from pydantic import BaseModel
 import asyncio
 
+
+import sys
+import os
+
+# Add the project root directory to Python's path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from v2.workflow.workflow import Workflow
 from v2.step.step import Step
 from v2.workflow.runner import Runner
-
 
 # Define input and output schemas
 class ImageData(BaseModel):
@@ -26,7 +31,7 @@ class FilteredResult(BaseModel):
 
 
 # Define step functions
-def resize_image(data: ImageData) -> ResizedImage:
+async def resize_image(data: ImageData) -> ResizedImage:
     # In a real implementation, this would actually resize the image
     print(f"Resizing image from {data.image_path}")
     # Simulate resized image data
@@ -36,7 +41,7 @@ def resize_image(data: ImageData) -> ResizedImage:
         image_data=b"simulated_resized_image_data"
     )
 
-def detect_objects(data: ImageData) -> DetectionResult:
+async def detect_objects(data: ImageData) -> DetectionResult:
     # In a real implementation, this would run object detection
     print(f"Detecting objects in {data.image_path}")
     # Simulate detection results
@@ -45,10 +50,11 @@ def detect_objects(data: ImageData) -> DetectionResult:
         confidence_scores=[0.92, 0.85, 0.78]
     )
 
-def filter_results(data: dict) -> FilteredResult:
+async def filter_results(data: dict) -> FilteredResult:
     # This step takes the combined results from parallel steps
     detection_results = data.get("Detect Objects")
-    
+
+    print(data)
     # Filter objects with confidence > 0.8
     filtered_objects = [
         obj for obj, score in zip(
