@@ -2,7 +2,7 @@ from typing import List, Type, Optional, Union, Sequence
 from pydantic import BaseModel
 
 from workflow.step import Step
-
+from workflow.node import WorkflowNode
 class Workflow:
     """
     A workflow is a sequence of steps that can be executed in order.
@@ -11,6 +11,7 @@ class Workflow:
     an initial input into a final output, with steps organized to run
     either sequentially or in parallel.
     """
+    nodes: List[WorkflowNode]
     
     def __init__(
         self,
