@@ -1,9 +1,11 @@
-from typing import List, Type, Optional, Union, Sequence
+from typing import List, Type, Sequence
 from pydantic import BaseModel
 
-from workflow.step import Step
-from workflow.node import WorkflowNode
+from v2.step import Step
+from v2.workflow.node import WorkflowNode, StepNode, ParallelNode
+
 class Workflow:
+
     """
     A workflow is a sequence of steps that can be executed in order.
     
@@ -11,6 +13,9 @@ class Workflow:
     an initial input into a final output, with steps organized to run
     either sequentially or in parallel.
     """
+    name: str
+    description: str
+    input_schema: Type[BaseModel]
     nodes: List[WorkflowNode]
     
     def __init__(
@@ -51,7 +56,6 @@ class Workflow:
             )
         
         # Add the step as a regular node
-        from workflow.node import StepNode
         self.nodes.append(StepNode(step))
         
         # Update the last step output schema
@@ -84,8 +88,6 @@ class Workflow:
                     f"doesn't match previous step's output schema {self._last_step_output_schema}"
                 )
         
-        # Add the steps as a parallel node
-        from workflow.node import ParallelNode
         self.nodes.append(ParallelNode(steps))
         
         # The output schema of a parallel node is a dict of step IDs to results

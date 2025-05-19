@@ -1,17 +1,23 @@
 import time
-import asyncio
-from typing import Any, AsyncGenerator, Dict, List, Optional
+from typing import Any, AsyncGenerator, Optional, Union
+from pydantic import BaseModel
+from uuid import UUID, uuid4
 
-from workflow.executor import AsyncIOExecutor, TaskExecutor
-from workflow.models import StepContext
-from workflow.workflow import Workflow
-from workflow.node import StepNode, ParallelNode
-from workflow.event import (
-    Event, WorkflowStartedEvent, WorkflowCompletedEvent, WorkflowFailedEvent
+from v2.events.step import StepEventType
+from v2.executor.asyncio import AsyncIOExecutor
+from v2.executor.base import TaskExecutor
+from v2.step.context import StepContext
+from v2.workflow.workflow import Workflow
+from v2.events import (
+    WorkflowStartedEvent, WorkflowCompletedEvent, WorkflowFailedEvent, WorkflowEvent, StepEvent
 )
+
 
 class Runner:
     """Base class for workflow execution runners."""
+    workflow: Workflow
+    executor: TaskExecutor
+    id: UUID
     
     def __init__(self, workflow: Workflow, executor: Optional[TaskExecutor] = None):
         """
@@ -23,8 +29,9 @@ class Runner:
         """
         self.workflow = workflow
         self.executor = executor or AsyncIOExecutor()
-
-    async def run(self, input_data: Any) -> Any:
+        self.id = uuid4()
+        
+    async def run(self, input_data: BaseModel) -> Any:
         """
         Run the workflow synchronously and return the final result.
         
@@ -41,33 +48,20 @@ class Runner:
             else input_data
         )
         
-        # Initialize step results storage
-        step_results = {}
-        
+
         # Process each node in sequence
         current_data = validated_input
         for node in self.workflow.nodes:
             context = StepContext(
                 input_data=current_data,
-                step_results=step_results,
-                initial_data=validated_input,
-                workflow_name=self.workflow.name
             )
             
-            # Execute the node
-            result = await node.execute(context, self.executor)
-
+            result = await node.execute(context=context, executor=self.executor)
             current_data = result
-            
-            # Store step results
-            if isinstance(node, StepNode):
-                step_results[node.step.id] = result
-            elif isinstance(node, ParallelNode) and isinstance(result, dict):
-                step_results.update(result)
-        
+
         return current_data
     
-    async def run_with_events(self, input_data: Any) -> AsyncGenerator[Event, None]:
+    async def run_with_events(self, input_data: BaseModel) -> AsyncGenerator[Union[WorkflowEvent, StepEvent], None]:
         """
         Run the workflow and stream events about the execution progress.
         
@@ -90,48 +84,32 @@ class Runner:
         # Emit workflow started event
         start_time = time.time()
         yield WorkflowStartedEvent(
+            workflow_id=str(self.id),
             workflow_name=self.workflow.name,
             input_data=validated_input
         )
         
         try:
-            # Process each node in sequence
             current_data = validated_input
             for node in self.workflow.nodes:
                 context = StepContext(
                     input_data=current_data,
-                    step_results=step_results,
-                    initial_data=validated_input,
-                    workflow_name=self.workflow.name
                 )
 
-                # Execute the node with events
-                async for event, data in node.execute_with_events(context, self.executor):
-                    if event is not None:
-                        current_data = data
-                        yield event
-                    else:
-                        current_data = data
-            
-                # Store step results
-                if isinstance(node, StepNode):
-                    step_results[node.step.id] = current_data
-                elif isinstance(node, ParallelNode) and isinstance(current_data, dict):
-                    step_results.update(current_data)
-            
-            # Emit workflow completed event
-            total_execution_time = time.time() - start_time
+                async for event in node.execute_with_events(context=context, executor=self.executor):
+                    yield event
+
+                    if event.type == StepEventType.STEP_COMPLETED:
+                        current_data = event.output_data
+                        
             yield WorkflowCompletedEvent(
+                workflow_id=str(self.id),
                 workflow_name=self.workflow.name,
-                output_data=current_data,
-                execution_time=total_execution_time
             )
         except Exception as e:
-            # Emit workflow failed event
-            total_execution_time = time.time() - start_time
             yield WorkflowFailedEvent(
+                workflow_id=str(self.id),
                 workflow_name=self.workflow.name,
                 error=str(e),
-                execution_time=total_execution_time
             )
             raise
