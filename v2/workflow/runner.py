@@ -3,7 +3,6 @@ from typing import Any, AsyncGenerator, Optional, Union
 from pydantic import BaseModel
 from uuid import UUID, uuid4
 
-from v2.events.step import StepEventType
 from v2.executor.asyncio import AsyncIOExecutor
 from v2.executor.base import TaskExecutor
 from v2.step.context import StepContext
@@ -77,11 +76,7 @@ class Runner:
             else input_data
         )
         
-        # Initialize step results storage
-        step_results = {}
-        
         # Emit workflow started event
-        start_time = time.time()
         yield WorkflowStartedEvent(
             workflow_id=str(self.id),
             workflow_name=self.workflow.name,
@@ -90,17 +85,18 @@ class Runner:
         
         try:
             current_data = validated_input
+
             for node in self.workflow.nodes:
                 context = StepContext(
                     input_data=current_data,
                 )
 
-                async for event in node.execute_with_events(context=context, executor=self.executor):
-                    yield event
+                async for event, data in node.execute_with_events(context=context, executor=self.executor):
+                    if (event is not None):
+                        yield event
+                    if (data is not None):
+                        current_data = data
 
-                    if event.type == StepEventType.STEP_COMPLETED:
-                        current_data = event.output_data
-                        
             yield WorkflowCompletedEvent(
                 workflow_id=str(self.id),
                 workflow_name=self.workflow.name,

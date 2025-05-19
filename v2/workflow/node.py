@@ -1,4 +1,4 @@
-from typing import Any, Dict, AsyncGenerator, Sequence
+from typing import Any, Dict, AsyncGenerator, Sequence, Tuple, Optional
 import time
 
 from v2.executor.base import TaskExecutor
@@ -13,7 +13,7 @@ class WorkflowNode:
         """Execute this node and return the result."""
         raise NotImplementedError("Subclasses must implement execute")
     
-    async def execute_with_events(self, context: StepContext, executor: TaskExecutor) -> AsyncGenerator[StepEvent, None]:
+    async def execute_with_events(self, context: StepContext, executor: TaskExecutor) -> AsyncGenerator[Tuple[Optional[StepEvent], Any], None]:
         """Execute this node and yield events along with the updated data."""
         raise NotImplementedError("Subclasses must implement execute_with_events")
 
@@ -27,26 +27,26 @@ class StepNode(WorkflowNode):
     async def execute(self, context: StepContext, executor: TaskExecutor) -> Any:
         return await executor.execute_task(self.step, context)
     
-    async def execute_with_events(self, context: StepContext, executor: TaskExecutor) -> AsyncGenerator[StepEvent, None]:
+    async def execute_with_events(self, context: StepContext, executor: TaskExecutor) -> AsyncGenerator[Tuple[Optional[StepEvent], Any], None]:
         """Execute the step and yield execution events."""
         step = self.step
         
         # Emit step started event
-        yield StepStartedEvent(
+        yield (StepStartedEvent(
             step_id=step.id,
             step_name=step.name,
             input_data=context.input_data,
-        )
+        ), None)
         
         # Execute the step
         result = await self.execute(context, executor)
                 
         # Emit step completed event
-        yield StepCompletedEvent(
+        yield (StepCompletedEvent(
             step_id=step.id,
             step_name=step.name,
             output_data=result,
-        )
+        ), result)
 
 
 class ParallelNode(WorkflowNode):
@@ -60,15 +60,15 @@ class ParallelNode(WorkflowNode):
         return await executor.execute_tasks_parallel(self.steps, context)
     
     
-    async def execute_with_events(self, context: StepContext, executor: TaskExecutor) -> AsyncGenerator[StepEvent, None]:
+    async def execute_with_events(self, context: StepContext, executor: TaskExecutor) ->  AsyncGenerator[Tuple[Optional[StepEvent], Any], None]:
         """Execute all steps in parallel and yield execution events."""
         # Emit started events for all steps first
         for step in self.steps:
-            yield StepStartedEvent(
+            yield (StepStartedEvent(
                 step_id=step.id,
                 step_name=step.name,
                 input_data=context.input_data,
-            )
+            ), None)
         
         # Execute all steps 
         results = await self.execute(context, executor)
@@ -76,8 +76,10 @@ class ParallelNode(WorkflowNode):
         # Emit completed events for all steps
         for step in self.steps:
             result = results[step.name]
-            yield StepCompletedEvent(
+            yield (StepCompletedEvent(
                 step_id=step.id,
                 step_name=step.name,
                 output_data=result,
-            )
+            ), result)
+        
+        yield (None, results)

@@ -18,6 +18,7 @@ class WorkflowEvent(BaseModel):
 class WorkflowStartedEvent(WorkflowEvent):
     """Event emitted when a workflow starts execution."""
     type: WorkflowEventType = WorkflowEventType.WORKFLOW_STARTED
+    input_data: Any = None
 
 class WorkflowCompletedEvent(WorkflowEvent):
     """Event emitted when a workflow completes execution."""

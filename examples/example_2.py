@@ -115,11 +115,9 @@ async def main():
     )
     
     # Run the workflow
-    result = await runner.run(input_data)
-    
-    # Display the result
-    print(f"\nDetected objects (confidence > 0.8): {result.detected_objects}")
-    print(f"Number of high-confidence objects: {result.object_count}")
+    async for event in runner.run_with_events(input_data):
+        print(event)
+        print("="*100)  
 
 
 if __name__ == "__main__":

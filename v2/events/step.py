@@ -1,6 +1,7 @@
 from enum import Enum
 from pydantic import BaseModel
 from uuid import UUID
+from typing import Any
 
 
 class StepEventType(Enum):
@@ -18,13 +19,13 @@ class StepEvent(BaseModel):
 class StepStartedEvent(StepEvent):
     """Event emitted when a step starts execution."""
     type: StepEventType = StepEventType.STEP_STARTED
-    input_data: BaseModel = None
+    input_data: Any = None
 
 class StepCompletedEvent(StepEvent):
     """Event emitted when a step completes execution."""
     type: StepEventType = StepEventType.STEP_COMPLETED
-    input_data: BaseModel = None
-    output_data: BaseModel = None
+    input_data: Any = None
+    output_data: Any = None
 
 class StepFailedEvent(StepEvent):
     """Event emitted when a step fails execution."""
