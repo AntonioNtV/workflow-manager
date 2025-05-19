@@ -84,8 +84,8 @@ async def main():
     
     # Alternatively, run with events to see the workflow progress
     print("\nRunning with events:")
-    result = await runner.run(input_data)
-    print(result)
+    async for event in runner.run_with_events(input_data):
+        print(event)
 
 if __name__ == "__main__":
     asyncio.run(main())

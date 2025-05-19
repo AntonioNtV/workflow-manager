@@ -1,6 +1,6 @@
 from enum import Enum
-from typing import Any
 from pydantic import BaseModel
+from uuid import UUID
 
 
 class StepEventType(Enum):
@@ -12,7 +12,7 @@ class StepEventType(Enum):
 class StepEvent(BaseModel):
     """Base class for all step events."""
     type: StepEventType
-    step_id: str
+    step_id: UUID
     step_name: str
 
 class StepStartedEvent(StepEvent):
